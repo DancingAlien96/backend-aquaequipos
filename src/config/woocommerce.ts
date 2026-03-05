@@ -1,4 +1,5 @@
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
+import https from 'https';
 
 if (!process.env.WOOCOMMERCE_URL) {
   throw new Error('WOOCOMMERCE_URL is not defined in environment variables');
@@ -18,6 +19,11 @@ const wooCommerce = new WooCommerceRestApi({
   consumerSecret: process.env.WOOCOMMERCE_CONSUMER_SECRET,
   version: 'wc/v3',
   queryStringAuth: true,
+  axiosConfig: {
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false
+    })
+  }
 });
 
 export default wooCommerce;
