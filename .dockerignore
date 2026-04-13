@@ -1,0 +1,49 @@
+# dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+yarn.lock
+pnpm-lock.yaml
+
+# testing
+coverage
+.nyc_output
+
+# build output
+dist
+build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+*.log*
+logs
+
+# local env files
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ide
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# git
+.git
+.gitignore
+.gitattributes
+
+# documentation
+README.md
+*.md
+
+# sqlite (si quieres excluir la base de datos local)
+# data/*.db
+# data/*.sqlite

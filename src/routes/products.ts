@@ -1,7 +1,13 @@
 import { Router, Request, Response } from 'express';
 import wooCommerce from '../config/woocommerce';
+import { cache } from '../lib/cache';
 
 const router = Router();
+
+// TTL: 5 minutos para productos (pueden cambiar con más frecuencia)
+const PRODUCTS_TTL = 300;
+// TTL: 1 hora para producto individual
+const PRODUCT_TTL = 3600;
 
 // GET /api/products - Obtener todos los productos
 router.get('/', async (req: Request, res: Response) => {
@@ -14,6 +20,13 @@ router.get('/', async (req: Request, res: Response) => {
       featured = '',
       on_sale = ''
     } = req.query;
+
+    const cacheKey = `products:${page}:${per_page}:${search}:${category}:${featured}:${on_sale}`;
+    // No cachear búsquedas
+    if (!search) {
+      const cached = cache.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
 
     const params: Record<string, string | number | boolean> = {
       page: Number(page),
@@ -28,14 +41,17 @@ router.get('/', async (req: Request, res: Response) => {
 
     const response = await wooCommerce.get('products', params);
     
-    res.json({
+    const result = {
       products: response.data,
       total: response.headers['x-wp-total'],
       totalPages: response.headers['x-wp-totalpages'],
-    });
+    };
+
+    if (!search) cache.set(cacheKey, result, PRODUCTS_TTL);
+    return res.json(result);
   } catch (error: any) {
     console.error('Error fetching products:', error.response?.data || error.message);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Error al obtener productos',
       details: error.response?.data || error.message 
     });
@@ -46,7 +62,11 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:slug', async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
-    
+
+    const cacheKey = `product:slug:${slug}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     const response = await wooCommerce.get('products', { 
       slug,
       status: 'publish' 
@@ -56,6 +76,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
+    cache.set(cacheKey, response.data[0], PRODUCT_TTL);
     return res.json(response.data[0]);
   } catch (error: any) {
     console.error('Error fetching product:', error.response?.data || error.message);
@@ -70,8 +91,13 @@ router.get('/:slug', async (req: Request, res: Response) => {
 router.get('/id/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
+    const cacheKey = `product:id:${id}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     const response = await wooCommerce.get(`products/${id}`);
+    cache.set(cacheKey, response.data, PRODUCT_TTL);
     return res.json(response.data);
   } catch (error: any) {
     console.error('Error fetching product:', error.response?.data || error.message);

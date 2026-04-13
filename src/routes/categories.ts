@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
 import wooCommerce from '../config/woocommerce';
+import { cache } from '../lib/cache';
 
 const router = Router();
+
+// TTL: 10 minutos para categorías (cambian poco frecuentemente)
+const CATEGORIES_TTL = 600;
 
 // GET /api/categories - Obtener todas las categorías
 router.get('/', async (req: Request, res: Response) => {
@@ -11,6 +15,12 @@ router.get('/', async (req: Request, res: Response) => {
       per_page = 100,
       parent = '' 
     } = req.query;
+
+    const cacheKey = `categories:${page}:${per_page}:${parent}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     const params: Record<string, string | number | boolean> = {
       page: Number(page),
@@ -22,14 +32,17 @@ router.get('/', async (req: Request, res: Response) => {
 
     const response = await wooCommerce.get('products/categories', params);
     
-    res.json({
+    const result = {
       categories: response.data,
       total: response.headers['x-wp-total'],
       totalPages: response.headers['x-wp-totalpages'],
-    });
+    };
+
+    cache.set(cacheKey, result, CATEGORIES_TTL);
+    return res.json(result);
   } catch (error: any) {
     console.error('Error fetching categories:', error.response?.data || error.message);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Error al obtener categorías',
       details: error.response?.data || error.message 
     });
